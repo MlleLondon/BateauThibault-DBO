@@ -1,0 +1,106 @@
+/* You can add global styles to this file, and also import other style files */
+body {
+  font-family: 'Montserrat', sans-serif;
+}
+hr.solid {
+  border-top: 3px solid #bbb;
+}
+
+.margin-bottom-space {
+  margin-bottom:10px
+}
+
+.horizontal-space {
+  margin-right: 10px;
+}
+
+th  {
+  font-size: 13px !important;
+  width:2%;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.small-input {
+  width:69px !important
+}
+
+td {
+  font-size: 13px !important;
+  width: 1%;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.anavlink {
+  background-color: #0d6efd;
+  color:#fff !important;
+  /* border-radius: 10px; */
+}
+
+.bg-dark {
+  background-color: #102038!important;
+}
+
+.navbar-dark .navbar-nav .nav-link {
+  color: #fff;
+  font-size:18px;
+  padding: 16px;
+}
+
+.navbar-toggler{
+  padding: 12px ;
+}
+
+.btn-light{
+  border-color: black;
+}
+.btn-light:focus{
+  border-color: black;
+}
+
+.btn-secondary {
+  color: #fff;
+  background-color: #5d5c5c !important;
+  border-color: black;
+}
+.btn-secondary:hover {
+  color: #fff;
+  background-color: #87878a  !important;
+  border-color: #565e64;
+}
+
+.form-signin {
+  width: 100%;
+  max-width: 600px;
+  padding: 15px;
+  margin: auto;
+  margin-top: 40px;
+}
+
+.form-signin .checkbox {
+  font-weight: 400;
+}
+
+.form-signin .form-floating:focus-within {
+  z-index: 2;
+}
+
+.form-signin input[type="email"] {
+  margin-bottom: -1px;
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.form-signin input[type="password"] {
+  margin-bottom: 10px;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.img-centered {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  width: 40%;
+}

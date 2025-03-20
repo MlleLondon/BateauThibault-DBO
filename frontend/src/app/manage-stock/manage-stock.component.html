@@ -1,0 +1,66 @@
+<app-nav></app-nav>
+<h1 class="text-center" style="margin-bottom:90px">Modification simultanée de produits</h1>
+
+<div class="row justify-content-md-center container-fluid">
+  <div class="row">
+    <!-- Boucle for -->
+    <div *ngFor="let category of categories" class="col-sm-6">
+      <button id="List{{category.name}}" (click)="onclick(category.name)" type="button" class="btn btn-secondary margin-bottom-space justify-content-md-center container-fluid">
+        <h5 class="card-title" style="text-align:center">{{category.name}}</h5>
+      </button>
+      <div *ngIf="visibility[category.name]" class="card" >
+        <div class="card-body justify-content-md-center">
+          <table class="table container-fluid justify-content-md-center">
+            <thead class="table container-fluid justify-content-md-center">
+              <tr>
+                <th scope="col">Nom</th>
+                <th scope="col">Prix</th>
+                <th scope="col">Promotion</th>
+                <th scope="col">Quantité</th>
+                <th scope="col">Vendus</th>
+                <th scope="col">Commentaires</th>
+                <th scope="col">Ajout <br> Stock</th>
+                <th scope="col">Prix <br> transac</th>
+                <th scope="col">Ajout <br> promo</th>
+              </tr>
+            </thead>
+            <tbody class="table container-fluid justify-content-md-center">
+              <tr *ngFor="let product of category.products">
+                <td>{{product.name}}</td>
+                <td>{{product.price}}</td>
+                <td>{{product.discount}}</td>
+                <td>{{product.quantityInStock}}</td>
+                <td>{{product.nombre_produit_vendu}}</td>
+                <td>{{product.comments}}</td>
+                <td>
+                  <input type="number" class="small-input" id="newQuantity" placeholder="..."
+                    [(ngModel)]='newQuantity[product.tig_id]'>
+                </td>
+                <td>
+                  <input type="number" class="small-input" id="prixTransaction" placeholder="€"
+                    [(ngModel)]='prixTransaction[product.tig_id]'>
+                </td>
+                <td>
+                  <input type="number" class="small-input" id="newPromotion" placeholder="%"
+                    [(ngModel)]='newPromotion[product.tig_id]'>
+                </td>
+
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- fin boucle for -->
+
+    <div class="row justify-content-md-center" style="margin-bottom: 50px;">
+      <a class="btn btn-success col-sm-4 horizontal-space" style="width:10%; margin-top:30px" (click)="addQuantity();this.getProductsAll();">Ajouter dans le
+        stock</a>
+      <a class="btn btn-danger col-sm-4 horizontal-space" style="width:10%; margin-top:30px" (click)="removeQuantity();this.getProductsAll();">Enlever dans le
+        stock</a>
+      <a class="btn btn-primary col-sm-4" style="width:10%; margin-top:30px" (click)="onModifyPromotion();this.getProductsAll();">Ajouter une
+        promotion</a>
+    </div>
+
+  </div>
