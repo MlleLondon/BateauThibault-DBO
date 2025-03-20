@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface Product {
   tig_id: number;
@@ -20,11 +21,16 @@ export interface Transaction {
   created?: string;
 }
 
+export interface Category {
+  id: number;
+  name: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class ProductsService {
-  private readonly urlApi = "http://localhost:8000";
+  private readonly urlApi = environment.apiUrl;
 
   constructor(private readonly http: HttpClient) {}
 
@@ -32,24 +38,28 @@ export class ProductsService {
     return this.http.get<Product[]>(`${this.urlApi}/infoproducts/`);
   }
 
-  setPromotion(id: number, discount: number): Observable<any> {
-    return this.http.get(`${this.urlApi}/modifyDiscount/${id}/${discount}/`);
+  getCategories(): Observable<Category[]> {
+    return this.http.get<Category[]>(`${this.urlApi}/categories/`);
   }
 
-  addQuantity(id: number, quantity: number): Observable<any> {
-    return this.http.get(`${this.urlApi}/incrementStock/${id}/${quantity}/`);
+  setPromotion(id: number, discount: number): Observable<Product> {
+    return this.http.put<Product>(`${this.urlApi}/modifyDiscount/${id}/${discount}/`, {});
   }
 
-  removeQuantity(id: number, quantity: number): Observable<any> {
-    return this.http.get(`${this.urlApi}/decrementStock/${id}/${quantity}/`);
+  addQuantity(id: number, quantity: number): Observable<Product> {
+    return this.http.put<Product>(`${this.urlApi}/incrementStock/${id}/${quantity}/`, {});
+  }
+
+  removeQuantity(id: number, quantity: number): Observable<Product> {
+    return this.http.put<Product>(`${this.urlApi}/decrementStock/${id}/${quantity}/`, {});
   }
 
   getProductCategories(category: string): Observable<Product[]> {
     return this.http.get<Product[]>(`${this.urlApi}/${category}/`);
   }
 
-  postTransaction(trans: Transaction): Observable<any> {
-    return this.http.post(`${this.urlApi}/transactions/`, trans);
+  postTransaction(trans: Transaction): Observable<Transaction> {
+    return this.http.post<Transaction>(`${this.urlApi}/transactions/`, trans);
   }
 
   getTransaction(): Observable<Transaction[]> {

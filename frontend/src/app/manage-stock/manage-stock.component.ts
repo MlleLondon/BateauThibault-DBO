@@ -1,27 +1,10 @@
-import { Component, OnInit } from '@angular/core';
-import { ProductsService } from '../services/products.service';
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ProductsService, Product, Transaction, Category } from '../services/products.service';
+import { catchError, finalize } from 'rxjs/operators';
+import { EMPTY } from 'rxjs';
 
-interface Product {
-  tig_id: number;
-  name: string;
-  price: number;
-  discount: number;
-  quantityInStock: number;
-  nombre_produit_vendu: number;
-  comments: string;
-}
-
-interface Category {
-  id: number;
-  name: string;
-  products: Product[] | null;
-}
-
-interface Transaction {
-  price: number;
-  quantity: number;
-  tig_id: number;
-  type: string;
+interface CategoryWithProducts extends Category {
+  products: Product[];
 }
 
 @Component({
@@ -29,82 +12,112 @@ interface Transaction {
   templateUrl: './manage-stock.component.html',
   styleUrls: ['./manage-stock.component.css']
 })
-export class ManageStockComponent implements OnInit {
-  readonly categories: Category[] = [
-    { id: 1, name: "poissons", products: null },
-    { id: 2, name: "crustaces", products: null },
-    { id: 3, name: "coquillages", products: null },
-  ];
-
-  newQuantity: number[] = [];
-  newPromotion: number[] = [];
-  prixTransaction: number[] = [];
+export class ManageStockComponent implements OnInit, OnDestroy {
+  categories: CategoryWithProducts[] = [];
   visibility: { [key: string]: boolean } = {};
+  newPromotion: { [key: number]: number } = {};
+  newQuantity: { [key: number]: number } = {};
+  prixTransaction: { [key: number]: number } = {};
+  loading = false;
+  error: string | null = null;
 
   constructor(private readonly productsService: ProductsService) {}
 
   ngOnInit(): void {
-    this.getProductsAll();
+    this.getCategories();
   }
 
-  getProductsAll(): void {
-    this.categories.forEach(category => {
-      this.getProductsCategory(category.name);
-    });
+  ngOnDestroy(): void {
+    // Cleanup if needed
   }
 
-  getProductsCategory(category: string): void {
-    this.productsService.getProductCategories(category).subscribe({
-      next: (res: Product[]) => {
-        const targetCategory = this.categories.find(c => c.name === category);
-        if (targetCategory) {
-          targetCategory.products = res;
-        }
-      },
-      error: (err) => {
-        console.error('Failed loading products:', err);
+  async getCategories(): Promise<void> {
+    this.loading = true;
+    this.error = null;
+    
+    try {
+      const categories = await this.productsService.getCategories().toPromise();
+      if (categories) {
+        this.categories = categories.map(category => ({
+          ...category,
+          products: []
+        }));
+        await this.getProductsAll();
       }
-    });
+    } catch (err) {
+      this.error = 'Erreur lors du chargement des catégories';
+      console.error('Failed loading categories:', err);
+    } finally {
+      this.loading = false;
+    }
   }
 
-  onModifyPromotion(): void {
-    this.newPromotion.forEach((promotion, tig_id) => {
-      if (promotion) {
-        this.productsService.setPromotion(tig_id, promotion).subscribe({
-          error: (err) => console.error('Failed to set promotion:', err)
-        });
+  async getProductsAll(): Promise<void> {
+    this.loading = true;
+    this.error = null;
+    
+    try {
+      await Promise.all(
+        this.categories.map(category => this.getProductsCategory(category.name))
+      );
+    } catch (err) {
+      this.error = 'Erreur lors du chargement des produits';
+      console.error('Failed loading products:', err);
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  async getProductsCategory(category: string): Promise<void> {
+    try {
+      const products = await this.productsService.getProductCategories(category).toPromise();
+      const targetCategory = this.categories.find(c => c.name === category);
+      if (targetCategory) {
+        targetCategory.products = products;
       }
-    });
-    this.getProductsAll();
+    } catch (err) {
+      console.error(`Failed loading products for category ${category}:`, err);
+      throw err;
+    }
   }
 
-  addQuantity(): void {
-    this.newQuantity.forEach((quantity, tig_id) => {
-      if (quantity && this.prixTransaction[tig_id]) {
-        this.addTransaction(tig_id, "Purchase");
-      }
-    });
-    this.getProductsAll();
+  async onModifyPromotion(): Promise<void> {
+    this.loading = true;
+    this.error = null;
+
+    try {
+      await Promise.all(
+        Object.entries(this.newPromotion)
+          .filter(([_, promotion]) => promotion)
+          .map(([tig_id, promotion]) => 
+            this.productsService.setPromotion(Number(tig_id), promotion)
+              .pipe(
+                catchError(err => {
+                  console.error(`Failed to set promotion for product ${tig_id}:`, err);
+                  return EMPTY;
+                })
+              )
+              .toPromise()
+          )
+      );
+      await this.getProductsAll();
+    } catch (err) {
+      this.error = 'Erreur lors de la modification des promotions';
+      console.error('Failed to set promotions:', err);
+    } finally {
+      this.loading = false;
+    }
   }
 
-  removeQuantity(): void {
-    this.newQuantity.forEach((quantity, tig_id) => {
-      if (quantity && this.prixTransaction[tig_id] !== undefined) {
-        const transactionType = this.prixTransaction[tig_id] === 0 ? "Unsold" : "Sale";
-        this.addTransaction(tig_id, transactionType);
-      }
-    });
-    this.getProductsAll();
-  }
+  async addTransaction(tig_id: number, type: string): Promise<void> {
+    if (!this.newQuantity[tig_id] || this.prixTransaction[tig_id] === undefined) {
+      return;
+    }
 
-  modifyStock(): void {
-    this.addQuantity();
-    this.onModifyPromotion();
-    this.getProductsAll();
-  }
+    this.loading = true;
+    this.error = null;
 
-  addTransaction(tig_id: number, type: string): void {
-    if (this.newQuantity[tig_id] && this.prixTransaction[tig_id] !== undefined) {
+    try {
       const transaction: Transaction = {
         price: this.prixTransaction[tig_id],
         quantity: this.newQuantity[tig_id],
@@ -112,9 +125,77 @@ export class ManageStockComponent implements OnInit {
         type
       };
       
-      this.productsService.postTransaction(transaction).subscribe({
-        error: (err) => console.error('Failed to post transaction:', err)
-      });
+      await this.productsService.postTransaction(transaction)
+        .pipe(
+          catchError(err => {
+            console.error('Failed to post transaction:', err);
+            return EMPTY;
+          })
+        )
+        .toPromise();
+      
+      await this.getProductsAll();
+    } catch (err) {
+      this.error = 'Erreur lors de l\'ajout de la transaction';
+      console.error('Failed to post transaction:', err);
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  async addQuantity(tig_id: number): Promise<void> {
+    if (!this.newQuantity[tig_id]) {
+      return;
+    }
+
+    this.loading = true;
+    this.error = null;
+
+    try {
+      await this.productsService.addQuantity(tig_id, this.newQuantity[tig_id])
+        .pipe(
+          catchError(err => {
+            console.error('Failed to add quantity:', err);
+            return EMPTY;
+          })
+        )
+        .toPromise();
+      
+      await this.getProductsAll();
+      this.newQuantity[tig_id] = 0;
+    } catch (err) {
+      this.error = 'Erreur lors de l\'ajout de la quantité';
+      console.error('Failed to add quantity:', err);
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  async removeQuantity(tig_id: number): Promise<void> {
+    if (!this.newQuantity[tig_id]) {
+      return;
+    }
+
+    this.loading = true;
+    this.error = null;
+
+    try {
+      await this.productsService.removeQuantity(tig_id, this.newQuantity[tig_id])
+        .pipe(
+          catchError(err => {
+            console.error('Failed to remove quantity:', err);
+            return EMPTY;
+          })
+        )
+        .toPromise();
+      
+      await this.getProductsAll();
+      this.newQuantity[tig_id] = 0;
+    } catch (err) {
+      this.error = 'Erreur lors de la suppression de la quantité';
+      console.error('Failed to remove quantity:', err);
+    } finally {
+      this.loading = false;
     }
   }
 

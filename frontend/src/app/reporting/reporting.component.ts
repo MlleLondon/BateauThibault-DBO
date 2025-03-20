@@ -1,7 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { Chart, registerables } from 'chart.js';
-import { ProductsService, Transaction } from '../services/products.service';
+import { ProductsService, Transaction, Category } from '../services/products.service';
 import { DatePipe } from '@angular/common';
+import { catchError, finalize } from 'rxjs/operators';
+import { EMPTY } from 'rxjs';
 
 Chart.register(...registerables);
 
@@ -9,66 +11,17 @@ interface FilterOption {
   name: string;
 }
 
-interface Category {
-  id: number;
-  name: string;
-  products: null;
-}
-
-interface ChartData {
-  labels: string[];
-  datasets: {
-    label: string;
-    data: number[];
-    fill: boolean;
-    borderColor: string;
-    backgroundColor: string;
-    tension: number;
-  }[];
-}
-
 @Component({
   selector: 'app-reporting',
   templateUrl: './reporting.component.html',
   styleUrls: ['./reporting.component.css']
 })
-export class ReportingComponent implements OnInit {
-  chart: Chart | null = null;
-  labels: string[] = [];
-  dataCA: number[] = [];
-  dataCout: number[] = [];
-  dataMarge: number[] = [];
-  data: ChartData = {
-    labels: this.labels,
-    datasets: [
-      {
-        label: 'Chiffres d\'affaires',
-        data: this.dataCA,
-        fill: false,
-        borderColor: 'rgb(0, 0, 255)',
-        backgroundColor: 'rgb(0, 0, 0)',
-        tension: 0.1
-      },
-      {
-        label: 'Cout',
-        data: this.dataCout,
-        fill: false,
-        borderColor: 'rgb(255, 0, 0)',
-        backgroundColor: 'rgb(0, 0, 0)',
-        tension: 0.1
-      },
-      {
-        label: 'Marge',
-        data: this.dataMarge,
-        fill: false,
-        borderColor: 'rgb(0, 255, 0)',
-        backgroundColor: 'rgb(0, 0, 0)',
-        tension: 0.1
-      }
-    ]
-  };
+export class ReportingComponent implements OnInit, OnDestroy {
+  @ViewChild('myChart') myChart!: ElementRef;
 
-  transactions: Transaction[] | null = null;
+  chart: Chart | null = null;
+  transactions: Transaction[] = [];
+  categories: Category[] = [];
   readonly filtrage: FilterOption[] = [
     { name: 'all' },
     { name: 'année' },
@@ -77,14 +30,11 @@ export class ReportingComponent implements OnInit {
     { name: 'semaine' },
     { name: 'jour' }
   ];
-  chiffreAffaires = 0;
-  marge = 0;
+  chiffresAffaire: { [key: string]: number } = {};
+  marge: { [key: string]: number } = {};
   impot = 0;
-  readonly categories: Category[] = [
-    { id: 0, name: "poissons", products: null },
-    { id: 2, name: "crustaces", products: null },
-    { id: 1, name: "coquillages", products: null },
-  ];
+  loading = false;
+  error: string | null = null;
 
   constructor(
     private readonly productsService: ProductsService,
@@ -92,163 +42,155 @@ export class ReportingComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.getCategories();
     this.getTransaction();
-    this.getMarge();
   }
 
-  getTransaction(): void {
-    this.productsService.getTransaction().subscribe({
-      next: (res: Transaction[]) => {
-        this.transactions = res;
-        this.getchiffresAffaire("année");
-        this.getMarge();
-      },
-      error: (err) => {
-        console.error('Failed loading transactions:', err);
-      }
-    });
-  }
-
-  getTransactionCategory(idCategory: string): void {
-    this.productsService.getTransactionCategory(idCategory).subscribe({
-      next: (res: Transaction[]) => {
-        this.transactions = res;
-        this.getchiffresAffaire("année");
-        this.getMarge();
-      },
-      error: (err) => {
-        console.error('Failed loading transactions by category:', err);
-      }
-    });
-  }
-
-  convertDate(filtrage: string, date: Date): string {
-    switch (filtrage) {
-      case "année":
-        return date.toLocaleString('default', { month: 'long' });
-      case "mois":
-        return date.getDate().toString();
-      case "semaine":
-        return date.toLocaleString('default', { weekday: 'long' });
-      case "jour":
-        return date.getHours().toString();
-      default:
-        return date.getFullYear().toString();
-    }
-  }
-
-  getchiffresAffaire(filtrage: string): void {
-    this.labels = [];
-    this.dataCA = [];
-    this.dataCout = [];
-    this.dataMarge = [];
-    this.chiffreAffaires = 0;
-
-    if (!this.transactions) return;
-
-    const today = new Date();
-    const todayYear = today.getFullYear();
-    const todayTrimestre = Math.ceil((today.getMonth() + 1) / 4);
-    const todayMonth = today.toLocaleString('default', { month: 'long' });
-    const todayMonthDay = today.getDate();
-
-    this.transactions.forEach(transaction => {
-      const date = new Date(transaction.created);
-      const transacYear = date.getFullYear();
-      const transacTrimestre = Math.ceil((date.getMonth() + 1) / 4);
-      const transacMonth = date.toLocaleString('default', { month: 'long' });
-      const transacMonthDay = date.getDate();
-      const transacWeekday = date.toLocaleString('default', { weekday: 'long' });
-      const transacHour = date.getHours();
-
-      let dateExist = false;
-      let label: string | number;
-
-      switch (filtrage) {
-        case "année":
-          if (transacYear === todayYear) {
-            label = transacMonth;
-            this.processTransaction(transaction, label, dateExist);
-          }
-          break;
-        case "trimestre":
-          if (transacYear === todayYear) {
-            label = transacTrimestre;
-            this.processTransaction(transaction, label, dateExist);
-          }
-          break;
-        case "mois":
-          if (transacYear === todayYear && transacMonth === todayMonth) {
-            label = transacMonthDay;
-            this.processTransaction(transaction, label, dateExist);
-          }
-          break;
-        case "semaine":
-          if (transacYear === todayYear && transacMonth === todayMonth) {
-            label = transacWeekday;
-            this.processTransaction(transaction, label, dateExist);
-          }
-          break;
-        case "jour":
-          if (transacYear === todayYear && transacMonth === todayMonth && transacMonthDay === todayMonthDay) {
-            label = transacHour;
-            this.processTransaction(transaction, label, dateExist);
-          }
-          break;
-        default:
-          label = transacYear;
-          this.processTransaction(transaction, label, dateExist);
-      }
-    });
-  }
-
-  private processTransaction(transaction: Transaction, label: string | number, dateExist: boolean): void {
-    if (transaction.type === "Sale") {
-      this.chiffreAffaires += transaction.price;
-      this.updateDataArrays(label, transaction.price, 0, dateExist);
-    } else if (transaction.type === "Purchase") {
-      this.updateDataArrays(label, 0, transaction.price, dateExist);
-    }
-  }
-
-  private updateDataArrays(label: string | number, ca: number, cout: number, dateExist: boolean): void {
-    const index = this.labels.indexOf(label.toString());
-    if (index !== -1) {
-      this.dataCA[index] += ca;
-      this.dataCout[index] += cout;
-      this.dataMarge[index] += (ca - cout);
-    } else {
-      this.labels.push(label.toString());
-      this.dataCA.push(ca);
-      this.dataCout.push(cout);
-      this.dataMarge.push(ca - cout);
-    }
-  }
-
-  getMarge(): void {
-    this.marge = this.chiffreAffaires - this.dataCout.reduce((a, b) => a + b, 0);
-  }
-
-  getImpot(): void {
-    this.impot = this.marge * 0.2;
-  }
-
-  initChart(): void {
+  ngOnDestroy(): void {
     if (this.chart) {
       this.chart.destroy();
     }
-    this.chart = new Chart('myChart', {
+  }
+
+  async getCategories(): Promise<void> {
+    try {
+      const categories = await this.productsService.getCategories().toPromise();
+      if (categories) {
+        this.categories = categories;
+      }
+    } catch (err) {
+      console.error('Failed loading categories:', err);
+    }
+  }
+
+  async getTransaction(): Promise<void> {
+    this.loading = true;
+    this.error = null;
+
+    try {
+      const transactions = await this.productsService.getTransaction()
+        .pipe(
+          catchError(err => {
+            console.error('Failed loading transactions:', err);
+            return EMPTY;
+          })
+        )
+        .toPromise();
+      
+      if (transactions) {
+        this.transactions = transactions;
+        await this.getchiffresAffaire("année");
+        await this.getMarge();
+        this.updateChart();
+      }
+    } catch (err) {
+      this.error = 'Erreur lors du chargement des transactions';
+      console.error('Failed loading transactions:', err);
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  async getTransactionCategory(idCategory: string): Promise<void> {
+    this.loading = true;
+    this.error = null;
+
+    try {
+      const transactions = await this.productsService.getTransactionCategory(idCategory)
+        .pipe(
+          catchError(err => {
+            console.error('Failed loading transactions by category:', err);
+            return EMPTY;
+          })
+        )
+        .toPromise();
+      
+      if (transactions) {
+        this.transactions = transactions;
+        await this.getchiffresAffaire("année");
+        await this.getMarge();
+        this.updateChart();
+      }
+    } catch (err) {
+      this.error = 'Erreur lors du chargement des transactions par catégorie';
+      console.error('Failed loading transactions by category:', err);
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  async getchiffresAffaire(period: string): Promise<void> {
+    this.chiffresAffaire = {};
+    
+    this.transactions.forEach(transaction => {
+      const date = new Date(transaction.created || '');
+      let key = '';
+      
+      switch (period) {
+        case "année":
+          key = date.getFullYear().toString();
+          break;
+        case "mois":
+          key = `${date.getFullYear()}-${date.getMonth() + 1}`;
+          break;
+        case "jour":
+          key = date.toISOString().split('T')[0];
+          break;
+      }
+      
+      if (key) {
+        this.chiffresAffaire[key] = (this.chiffresAffaire[key] || 0) + transaction.price * transaction.quantity;
+      }
+    });
+  }
+
+  async getMarge(): Promise<void> {
+    this.marge = {};
+    
+    this.transactions.forEach(transaction => {
+      const date = new Date(transaction.created || '');
+      const key = date.getFullYear().toString();
+      
+      if (transaction.type === 'Sale') {
+        this.marge[key] = (this.marge[key] || 0) + transaction.price * transaction.quantity;
+      }
+    });
+  }
+
+  getImpot(): void {
+    this.impot = this.marge[Object.keys(this.marge)[0]] * 0.2;
+  }
+
+  updateChart(): void {
+    if (this.chart) {
+      this.chart.destroy();
+    }
+
+    const ctx = this.myChart.nativeElement.getContext('2d');
+    this.chart = new Chart(ctx, {
       type: 'line',
-      data: this.data,
+      data: {
+        labels: Object.keys(this.chiffresAffaire),
+        datasets: [
+          {
+            label: 'Chiffres d\'affaires',
+            data: Object.values(this.chiffresAffaire),
+            borderColor: 'rgb(75, 192, 192)',
+            tension: 0.1
+          },
+          {
+            label: 'Marge',
+            data: Object.values(this.marge),
+            borderColor: 'rgb(255, 99, 132)',
+            tension: 0.1
+          }
+        ]
+      },
       options: {
         responsive: true,
-        plugins: {
-          legend: {
-            position: 'top',
-          },
-          title: {
-            display: true,
-            text: 'Chiffres d\'affaires, coûts et marges'
+        scales: {
+          y: {
+            beginAtZero: true
           }
         }
       }
