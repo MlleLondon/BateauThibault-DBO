@@ -91,12 +91,12 @@ export class ReportingComponent implements OnInit, OnDestroy {
     }
   }
 
-  async getTransactionCategory(idCategory: string): Promise<void> {
+  async getTransactionCategory(categoryId: string): Promise<void> {
     this.loading = true;
     this.error = null;
 
     try {
-      const transactions = await this.productsService.getTransactionCategory(idCategory)
+      const transactions = await this.productsService.getTransactionCategory(categoryId)
         .pipe(
           catchError(err => {
             console.error('Failed loading transactions by category:', err);

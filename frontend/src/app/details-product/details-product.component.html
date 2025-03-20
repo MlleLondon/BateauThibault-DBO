@@ -4,7 +4,7 @@
 <div class="dropdown text-center margin-bottom-space" >
   <button class="btn btn-light dropdown-toggle" type="button" id="dropdownMenuButton1" data-bs-toggle="dropdown"
     aria-expanded="false">
-    {{product.name}}
+    {{product?.name}}
   </button>
   <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
     <li *ngFor="let item of products">
@@ -17,10 +17,10 @@
   <h1>Page d'affichage du produit</h1>
   <ul>
     <li>
-      Nom : {{product.name}}
+      Nom : {{product?.name}}
     </li>
     <li>
-      Prix : {{product.price}} €
+      Prix : {{product?.price}} €
     </li>
     <li>
       Promotion : {{copyDiscount}} %
@@ -36,8 +36,12 @@
         [(ngModel)]='newQuantity'>
       </div>
         <div class="raw">
-        <button class="btn btn-success horizontal-space" (click)="addQuantity(product)">+</button>
-        <button class="btn btn-danger " (click)="removeQuantity(product)">-</button>
+        <button class="btn btn-success horizontal-space" 
+                *ngIf="product"
+                (click)="addQuantity(product)">+</button>
+        <button class="btn btn-danger" 
+                *ngIf="product"
+                (click)="removeQuantity(product)">-</button>
       </div>
     </li>
   </ul>
@@ -48,10 +52,14 @@
     </li>
 
     <li>
-      <button class="btn btn-primary" (click)="onModifyPromotion(product);addSale(product)">ModifierPromotion</button>
+      <button class="btn btn-primary" 
+              *ngIf="product"
+              (click)="onModifyPromotion(product); addSale(product)">
+        Modifier Promotion
+      </button>
     </li>
     <li>
-      Quantité en stock : {{product.quantityInStock}}
+      Quantité en stock : {{product?.quantityInStock}}
     </li>
   </ul>
 </div>

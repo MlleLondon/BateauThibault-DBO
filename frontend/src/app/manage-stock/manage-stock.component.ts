@@ -72,7 +72,7 @@ export class ManageStockComponent implements OnInit, OnDestroy {
     try {
       const products = await this.productsService.getProductCategories(category).toPromise();
       const targetCategory = this.categories.find(c => c.name === category);
-      if (targetCategory) {
+      if (targetCategory && products) {
         targetCategory.products = products;
       }
     } catch (err) {

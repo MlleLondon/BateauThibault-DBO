@@ -7,7 +7,7 @@
     </button>
     <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
         <li *ngFor="let item of categories">
-            <button class="dropdown-item" (click)="getTransactionCategory(item.id)">{{item.name}}</button>
+            <button class="dropdown-item" (click)="getTransactionCategory(item.id.toString())">{{item.name}}</button>
         </li>
     </ul>
 </div>
