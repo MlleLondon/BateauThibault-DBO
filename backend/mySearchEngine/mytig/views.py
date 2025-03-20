@@ -2,27 +2,37 @@ import requests
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from mytig.config import baseUrl
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 # Create your views here.
 class RedirectionListeDeProduits(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
     def get(self, request, format=None):
         response = requests.get(baseUrl+'products/')
         jsondata = response.json()
+        for product in jsondata:
+            if product.get('sale'):
+                product['prixVente'] = round(product['price'] * (1 - product['discount']/100) * 1.4, 2)
+            else:
+                product['prixVente'] = round(product['price'] * 1.4, 2)
         return Response(jsondata)
 #    def post(self, request, format=None):
 #        NO DEFITION of post --> server will return "405 NOT ALLOWED"
 
 class RedirectionDetailProduit(APIView):
-    def get_object(self, pk):
-        try:
-            response = requests.get(baseUrl+'product/'+str(pk)+'/')
-            jsondata = response.json()
-            return Response(jsondata)
-        except:
-            raise Http404
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
     def get(self, request, pk, format=None):
         response = requests.get(baseUrl+'product/'+str(pk)+'/')
         jsondata = response.json()
+        if jsondata.get('sale'):
+            jsondata['prixVente'] = round(jsondata['price'] * (1 - jsondata['discount']/100) * 1.4, 2)
+        else:
+            jsondata['prixVente'] = round(jsondata['price'] * 1.4, 2)
         return Response(jsondata)
 #    def put(self, request, pk, format=None):
 #        NO DEFITION of put --> server will return "405 NOT ALLOWED"
@@ -125,3 +135,36 @@ class PromoDetail(APIView):
 #        NO DEFITION of put --> server will return "405 NOT ALLOWED"
 #    def delete(self, request, pk, format=None):
 #        NO DEFITION of delete --> server will return "405 NOT ALLOWED"
+
+class ProduitsParCategorie(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, categorie, format=None):
+        if categorie not in ['0', '1', '2']:
+            return Response({'error': 'Catégorie invalide. Utilisez 0 pour Poisson, 1 pour Coquillage, ou 2 pour Crustacé.'}, status=400)
+            
+        response = requests.get(baseUrl+'products/')
+        jsondata = response.json()
+        produits_filtres = []
+        
+        for product in jsondata:
+            if str(product.get('category')) == categorie:
+                # Calcul du prixVente
+                if product.get('sale'):
+                    product['prixVente'] = round(product['price'] * (1 - product['discount']/100) * 1.4, 2)
+                else:
+                    product['prixVente'] = round(product['price'] * 1.4, 2)
+                produits_filtres.append(product)
+        
+        if not produits_filtres:
+            return Response({
+                'message': f'Aucun produit trouvé dans la catégorie {categorie}',
+                'categorie': {
+                    '0': 'Poisson',
+                    '1': 'Coquillage',
+                    '2': 'Crustacé'
+                }[categorie]
+            }, status=404)
+            
+        return Response(produits_filtres)
