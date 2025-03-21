@@ -15,24 +15,33 @@ class Command(BaseCommand):
         current_date = start_date
         ca_count = 0
         
+        # Date actuelle pour déterminer les périodes actives
+        today = timezone.now().date()
+        
         while current_date <= end_date:
             # Générer CA journalier
-            ChiffreAffaire.create_chiffre_affaire('JOURNALIER', current_date)
+            is_active = current_date == today
+            ChiffreAffaire.create_chiffre_affaire('JOURNALIER', current_date, is_active=is_active)
             ca_count += 1
             
             # Générer CA mensuel le 1er du mois
             if current_date.day == 1:
-                ChiffreAffaire.create_chiffre_affaire('MENSUEL', current_date)
+                is_active = current_date.year == today.year and current_date.month == today.month
+                ChiffreAffaire.create_chiffre_affaire('MENSUEL', current_date, is_active=is_active)
                 ca_count += 1
             
             # Générer CA trimestriel le 1er jour du trimestre
             if current_date.day == 1 and current_date.month in [1, 4, 7, 10]:
-                ChiffreAffaire.create_chiffre_affaire('TRIMESTRIEL', current_date)
+                current_trimester = (today.month - 1) // 3
+                date_trimester = (current_date.month - 1) // 3
+                is_active = current_date.year == today.year and date_trimester == current_trimester
+                ChiffreAffaire.create_chiffre_affaire('TRIMESTRIEL', current_date, is_active=is_active)
                 ca_count += 1
             
             # Générer CA annuel le 1er janvier
             if current_date.day == 1 and current_date.month == 1:
-                ChiffreAffaire.create_chiffre_affaire('ANNUEL', current_date)
+                is_active = current_date.year == 2025  # Seul l'année 2025 est active
+                ChiffreAffaire.create_chiffre_affaire('ANNUEL', current_date, is_active=is_active)
                 ca_count += 1
             
             if ca_count % 10 == 0:

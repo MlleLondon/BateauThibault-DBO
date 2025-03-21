@@ -184,7 +184,7 @@ class ChiffreAffaire(models.Model):
             cls.create_chiffre_affaire('ANNUEL', year_start)
 
     @classmethod
-    def create_chiffre_affaire(cls, type_periode, date):
+    def create_chiffre_affaire(cls, type_periode, date, is_active=True):
         # Déterminer la période de calcul
         if type_periode == 'JOURNALIER':
             start_date = datetime.combine(date, datetime.min.time())
@@ -243,6 +243,7 @@ class ChiffreAffaire(models.Model):
             libelle=libelle,
             date=date,
             type=type_periode,
+            statut=is_active,  # Utiliser le paramètre is_active
             totalAvecSolde=total_avec_solde,
             totalSansSolde=total_sans_solde,
             totalGlobal=total_global
